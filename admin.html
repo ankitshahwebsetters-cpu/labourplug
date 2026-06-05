@@ -318,45 +318,43 @@ let allWorkers = [], allJobs = [], allContacts = [];
 let workerStatusFilter = 'all';
 let currentPage = 'overview';
 
-// ── LOGIN via Firebase Auth ──
+// ── LOGIN via real Firebase Auth (needed for Firestore rules) ──
 function doLogin() {
   const email = document.getElementById('loginEmail').value.trim();
   const pass  = document.getElementById('loginPass').value;
   const err   = document.getElementById('loginErr');
   const btn   = document.querySelector('.login-btn');
   err.textContent = '';
-  btn.textContent = 'Logging in...';
+  btn.textContent = '⏳ Logging in...';
   btn.disabled = true;
 
   auth.signInWithEmailAndPassword(email, pass)
     .then(() => {
-      document.getElementById('loginScreen').style.display = 'none';
-      loadAll();
+      // onAuthStateChanged will handle the rest
     })
     .catch(e => {
-      err.textContent = '❌ ' + (
-        (e.code === 'auth/wrong-password' || e.code === 'auth/user-not-found' || e.code === 'auth/invalid-credential')
-          ? 'Wrong email or password.'
-          : e.code === 'auth/invalid-email'
-          ? 'Invalid email address.'
-          : e.message
-      );
+      const msg = (e.code === 'auth/wrong-password' || e.code === 'auth/user-not-found' || e.code === 'auth/invalid-credential')
+        ? 'Wrong email or password.'
+        : e.code === 'auth/invalid-email' ? 'Invalid email.' : e.message;
+      err.textContent = '❌ ' + msg;
       btn.textContent = '🔐 Login to Dashboard';
       btn.disabled = false;
     });
 }
 
 function doLogout() {
-  auth.signOut().then(() => {
-    document.getElementById('loginScreen').style.display = 'flex';
-  });
+  auth.signOut();
 }
 
-// Auto-login if Firebase session still active
+// Fires on every page load — if already signed in, go straight to dashboard
 auth.onAuthStateChanged(function(user) {
   if (user) {
     document.getElementById('loginScreen').style.display = 'none';
-    if (typeof allWorkers !== 'undefined' && allWorkers.length === 0) loadAll();
+    document.querySelector('.login-btn').textContent = '🔐 Login to Dashboard';
+    document.querySelector('.login-btn').disabled = false;
+    loadAll();
+  } else {
+    document.getElementById('loginScreen').style.display = 'flex';
   }
 });
 
@@ -377,27 +375,23 @@ async function loadWorkers() {
   try {
     let snap;
     try {
-      // Try with orderBy first
       snap = await db.collection('workers').orderBy('createdAt','desc').limit(500).get();
-    } catch(orderErr) {
-      // If index missing, fall back to unordered fetch
-      console.warn('orderBy failed, trying without:', orderErr.message);
+    } catch(idxErr) {
+      // Firestore index missing — fetch without orderBy, sort client-side
       snap = await db.collection('workers').limit(500).get();
     }
-    allWorkers = snap.docs.map(d => ({id: d.id, ...d.data()}));
-    // Sort client-side by createdAt desc
-    allWorkers.sort((a,b) => {
-      const ta = a.createdAt?.toDate?.() || new Date(a.createdAt||0);
-      const tb = b.createdAt?.toDate?.() || new Date(b.createdAt||0);
+    allWorkers = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    allWorkers.sort((a, b) => {
+      const ta = a.createdAt?.toDate?.() || new Date(a.createdAt || 0);
+      const tb = b.createdAt?.toDate?.() || new Date(b.createdAt || 0);
       return tb - ta;
     });
     document.getElementById('workerBadge').textContent = allWorkers.length;
-    console.log('Workers loaded:', allWorkers.length, allWorkers[0]);
   } catch(e) {
-    console.error('Workers load error:', e.code, e.message);
+    console.error('loadWorkers error:', e.code, e.message);
     allWorkers = [];
-    document.getElementById('workersTbody').innerHTML =
-      '<tr><td colspan="10" style="text-align:center;padding:30px;color:#DC2626;font-family:monospace">⚠️ ' + e.code + ': ' + e.message + '</td></tr>';
+    const tbody = document.getElementById('workersTbody');
+    if (tbody) tbody.innerHTML = '<tr><td colspan="10" style="text-align:center;padding:28px;color:#DC2626">⚠️ Firebase error: ' + e.code + ' — ' + e.message + '</td></tr>';
   }
 }
 
@@ -465,7 +459,7 @@ function renderOverview() {
       <td class="td-name">${esc(w.name)}</td>
       <td><a href="tel:${esc(w.mobile)}" style="color:var(--saffron)">${esc(w.mobile)}</a></td>
       <td>${esc(w.city)}</td>
-      <td>${esc(w.skill)}</td>
+      <td>${esc(w.work)}</td>
       <td>${statusBadge(w.status)}</td>
       <td class="td-small">${fmtDate(w.createdAt)}</td>
       <td>
@@ -513,7 +507,7 @@ function renderWorkers() {
     const matchSearch = !search ||
       (w.name||'').toLowerCase().includes(search) ||
       (w.mobile||'').includes(search) ||
-      (w.skill||'').toLowerCase().includes(search);
+      (w.work||'').toLowerCase().includes(search);
     return matchStatus && matchCity && matchSearch;
   });
 
@@ -531,9 +525,9 @@ function renderWorkers() {
       <td><div class="td-name">${esc(w.name)}</div></td>
       <td><a href="tel:${esc(w.mobile)}" style="color:var(--saffron);font-weight:600">${esc(w.mobile)}</a></td>
       <td>${esc(w.city)}</td>
-      <td>${esc(w.skill)}</td>
-      <td>${esc(w.experience) || '—'}</td>
-      <td style="color:var(--green);font-weight:600">${esc(w.expectedPay) || '—'}</td>
+      <td>${esc(w.work)}</td>
+      <td>${esc(w.exp) || '—'}</td>
+      <td style="color:var(--green);font-weight:600">${esc(w.pay) || '—'}</td>
       <td>${statusBadge(w.status)}</td>
       <td class="td-small">${fmtDate(w.createdAt)}</td>
       <td style="white-space:nowrap">
@@ -561,11 +555,11 @@ function viewWorker(id) {
     </div>
     <div class="detail-row">
       <div class="detail-item"><div class="detail-label">City</div><div class="detail-value">${esc(w.city)}</div></div>
-      <div class="detail-item"><div class="detail-label">Skill / Kaam</div><div class="detail-value">${esc(w.skill)}</div></div>
+      <div class="detail-item"><div class="detail-label">Skill / Kaam</div><div class="detail-value">${esc(w.work)}</div></div>
     </div>
     <div class="detail-row">
-      <div class="detail-item"><div class="detail-label">Experience</div><div class="detail-value">${esc(w.experience)||'—'}</div></div>
-      <div class="detail-item"><div class="detail-label">Expected Pay</div><div class="detail-value" style="color:var(--green)">${esc(w.expectedPay)||'—'}</div></div>
+      <div class="detail-item"><div class="detail-label">Experience</div><div class="detail-value">${esc(w.exp)||'—'}</div></div>
+      <div class="detail-item"><div class="detail-label">Expected Pay</div><div class="detail-value" style="color:var(--green)">${esc(w.pay)||'—'}</div></div>
     </div>
     ${w.about ? `<div style="background:var(--ivory);padding:12px;border-radius:8px;margin-bottom:14px"><div class="detail-label" style="margin-bottom:6px">About / Skills</div><div style="font-size:.85rem;line-height:1.65">${esc(w.about)}</div></div>` : ''}
     <div class="detail-row">
@@ -664,10 +658,10 @@ function viewJob(id) {
       <div class="detail-item"><div class="detail-label">Vacancies</div><div class="detail-value">${esc(j.seats)||'—'}</div></div>
     </div>
     <div class="detail-row">
-      <div class="detail-item"><div class="detail-label">Job Type</div><div class="detail-value">${esc(j.type)||'—'}</div></div>
-      <div class="detail-item"><div class="detail-label">Experience</div><div class="detail-value">${esc(j.experience)||'—'}</div></div>
+      <div class="detail-item"><div class="detail-label">Job Type</div><div class="detail-value">${esc(j.jobType||j.type)||'—'}</div></div>
+      <div class="detail-item"><div class="detail-label">Experience</div><div class="detail-value">${esc(j.exp)||'—'}</div></div>
     </div>
-    ${j.description ? `<div style="background:var(--ivory);padding:12px;border-radius:8px;margin-bottom:14px"><div class="detail-label" style="margin-bottom:6px">Job Description</div><div style="font-size:.85rem;line-height:1.65">${esc(j.description)}</div></div>` : ''}
+    ${(j.desc||j.description) ? `<div style="background:var(--ivory);padding:12px;border-radius:8px;margin-bottom:14px"><div class="detail-label" style="margin-bottom:6px">Job Description</div><div style="font-size:.85rem;line-height:1.65">${esc(j.desc||j.description)}</div></div>` : ''}
     <div class="detail-row">
       <div class="detail-item"><div class="detail-label">Contact Person</div><div class="detail-value">${esc(j.contactName)||'—'}</div></div>
       <div class="detail-item"><div class="detail-label">Mobile / WhatsApp</div><div class="detail-value"><a href="tel:${esc(j.mobile)}" style="color:var(--saffron)">${esc(j.mobile)}</a></div></div>
