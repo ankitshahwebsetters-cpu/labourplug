@@ -1,0 +1,384 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>Labourplug Admin v3</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:Arial,sans-serif;background:#f5f5f5;min-height:100vh}
+#overlay{position:fixed;inset:0;background:#0D1F4E;display:flex;align-items:center;justify-content:center;z-index:999}
+.box{background:#fff;padding:40px;border-radius:16px;width:340px;text-align:center}
+.box h2{color:#0D1F4E;margin-bottom:20px;font-size:1.4rem}
+.box input{width:100%;padding:12px;border:1.5px solid #ddd;border-radius:8px;font-size:1rem;margin-bottom:12px}
+.box button{width:100%;background:#FF6B00;color:#fff;border:none;padding:12px;border-radius:8px;font-size:1rem;font-weight:700;cursor:pointer}
+#err{color:red;font-size:.85rem;margin-top:8px;min-height:20px}
+header{background:#0D1F4E;color:#fff;padding:14px 24px;display:flex;justify-content:space-between;align-items:center}
+header h1{font-size:1.1rem}header span{color:#FF6B00;font-weight:700}
+header button{background:#FF6B00;color:#fff;border:none;padding:8px 16px;border-radius:6px;cursor:pointer;font-weight:700}
+nav{background:#fff;border-bottom:2px solid #eee;padding:0 24px;display:flex;gap:4px}
+.ntab{padding:12px 20px;cursor:pointer;border-bottom:3px solid transparent;font-weight:600;color:#666;font-size:.9rem}
+.ntab.active{color:#0D1F4E;border-bottom-color:#FF6B00}
+.content{padding:24px}
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:24px}
+.stat{background:#fff;border-radius:12px;padding:20px;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,.06)}
+.stat .n{font-size:2rem;font-weight:800;color:#0D1F4E}
+.stat .l{font-size:.8rem;color:#888;margin-top:4px}
+.panel{display:none}.panel.active{display:block}
+.tbl{background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,.06)}
+table{width:100%;border-collapse:collapse}
+th{background:#0D1F4E;color:#fff;padding:10px 14px;text-align:left;font-size:.78rem;white-space:nowrap}
+td{padding:10px 14px;font-size:.83rem;border-bottom:1px solid #f0f0f0;vertical-align:middle}
+tr:last-child td{border-bottom:none}
+tr:hover td{background:#fffaf6}
+.badge{display:inline-block;padding:2px 8px;border-radius:4px;font-size:.68rem;font-weight:700}
+.b-pending{background:#FEF3C7;color:#92400E}
+.b-approved{background:#D1FAE5;color:#065F46}
+.b-rejected{background:#FEE2E2;color:#991B1B}
+.btn{border:none;padding:5px 10px;border-radius:5px;font-size:.75rem;font-weight:700;cursor:pointer;margin:1px}
+.btn-v{background:#E8EDF8;color:#0D1F4E}.btn-v:hover{background:#0D1F4E;color:#fff}
+.btn-a{background:#D1FAE5;color:#065F46}.btn-a:hover{background:#065F46;color:#fff}
+.btn-r{background:#FEE2E2;color:#991B1B}.btn-r:hover{background:#991B1B;color:#fff}
+.btn-d{background:#f3f4f6;color:#6b7280}.btn-d:hover{background:#FEE2E2;color:#991B1B}
+.search{background:#fff;border-radius:10px;padding:12px 16px;margin-bottom:14px;box-shadow:0 2px 8px rgba(0,0,0,.06)}
+.search input{padding:8px 12px;border:1.5px solid #ddd;border-radius:7px;font-size:.85rem;outline:none;width:260px}
+.search input:focus{border-color:#FF6B00}
+.empty{text-align:center;padding:40px;color:#aaa;font-size:.9rem}
+.modal-bg{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:800;align-items:center;justify-content:center}
+.modal-bg.open{display:flex}
+.modal{background:#fff;border-radius:14px;max-width:500px;width:100%;max-height:90vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,.3)}
+.mhead{background:#0D1F4E;padding:18px 22px;border-radius:14px 14px 0 0;display:flex;justify-content:space-between;align-items:center}
+.mhead h3{color:#fff;font-size:.95rem}
+.mhead button{background:rgba(255,255,255,.15);border:none;color:#fff;width:28px;height:28px;border-radius:50%;cursor:pointer;font-size:.9rem}
+.mbody{padding:20px 22px}
+.mrow{display:flex;gap:12px;margin-bottom:14px;flex-wrap:wrap}
+.mitem{flex:1;min-width:170px}
+.ml{font-size:.65rem;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#999;margin-bottom:3px}
+.mv{font-size:.88rem;color:#1A1208;font-weight:600}
+.mfooter{display:flex;gap:8px;margin-top:16px;padding-top:14px;border-top:1px solid #eee}
+.mfooter a,.mfooter button{flex:1;padding:10px;border-radius:7px;font-size:.85rem;font-weight:700;border:none;text-align:center;cursor:pointer}
+.wa{background:#25D366;color:#fff;text-decoration:none}
+.ma{background:#065F46;color:#fff}
+.mr{background:#991B1B;color:#fff}
+.toast{position:fixed;bottom:20px;right:20px;background:#0D1F4E;color:#fff;padding:10px 18px;border-radius:8px;font-size:.85rem;font-weight:700;transform:translateY(60px);opacity:0;transition:all .3s;z-index:999}
+.toast.show{transform:translateY(0);opacity:1}
+.toast.ok{background:#065F46}.toast.err{background:#991B1B}
+</style>
+</head>
+<body>
+
+<div id="overlay">
+  <div class="box">
+    <h2>🔐 Labourplug Admin</h2>
+    <input type="password" id="pw" placeholder="Password" onkeydown="if(event.key==='Enter')login()"/>
+    <button onclick="login()">Login</button>
+    <div id="err"></div>
+  </div>
+</div>
+
+<header>
+  <h1>Labour<span>plug</span> Admin Panel</h1>
+  <button onclick="logout()">Logout</button>
+</header>
+
+<nav>
+  <div class="ntab active" onclick="tab('overview',this)">📊 Overview</div>
+  <div class="ntab" onclick="tab('workers',this)">👷 Job Seekers (<span id="wc">0</span>)</div>
+  <div class="ntab" onclick="tab('jobs',this)">💼 Employers / Jobs (<span id="jc">0</span>)</div>
+  <div class="ntab" onclick="tab('queries',this)">💬 Queries (<span id="qc">0</span>)</div>
+</nav>
+
+<div class="content">
+
+  <!-- OVERVIEW -->
+  <div id="panel-overview" class="panel active">
+    <div class="stats">
+      <div class="stat"><div class="n" id="s1">—</div><div class="l">Job Seekers</div></div>
+      <div class="stat"><div class="n" id="s2">—</div><div class="l">Job Posts</div></div>
+      <div class="stat"><div class="n" id="s3">—</div><div class="l">Approved</div></div>
+      <div class="stat"><div class="n" id="s4">—</div><div class="l">Pending</div></div>
+    </div>
+    <h3 style="margin-bottom:12px;color:#0D1F4E">Recent Job Seekers</h3>
+    <div class="tbl"><table>
+      <thead><tr><th>Name</th><th>Mobile</th><th>City</th><th>Work</th><th>Status</th><th>Date</th></tr></thead>
+      <tbody id="ov-workers"></tbody>
+    </table></div>
+    <h3 style="margin:20px 0 12px;color:#0D1F4E">Recent Job Posts</h3>
+    <div class="tbl"><table>
+      <thead><tr><th>Title</th><th>Company</th><th>City</th><th>Pay</th><th>Contact</th><th>Phone</th><th>Date</th></tr></thead>
+      <tbody id="ov-jobs"></tbody>
+    </table></div>
+  </div>
+
+  <!-- WORKERS -->
+  <div id="panel-workers" class="panel">
+    <div class="search">
+      <input type="text" id="wsearch" placeholder="Search name, mobile, city, work..." oninput="renderW()"/>
+    </div>
+    <div class="tbl"><table>
+      <thead><tr><th>#</th><th>Name</th><th>Mobile</th><th>City</th><th>Work</th><th>Exp</th><th>Pay</th><th>Status</th><th>Date</th><th>Actions</th></tr></thead>
+      <tbody id="tb-workers"></tbody>
+    </table></div>
+  </div>
+
+  <!-- JOBS -->
+  <div id="panel-jobs" class="panel">
+    <div class="search">
+      <input type="text" id="jsearch" placeholder="Search title, company, city..." oninput="renderJ()"/>
+    </div>
+    <div class="tbl"><table>
+      <thead><tr><th>#</th><th>Title</th><th>Company</th><th>Sector</th><th>City</th><th>Pay</th><th>Contact Name</th><th>Phone</th><th>Date</th><th>Actions</th></tr></thead>
+      <tbody id="tb-jobs"></tbody>
+    </table></div>
+  </div>
+
+  <!-- QUERIES -->
+  <div id="panel-queries" class="panel">
+    <div class="tbl"><table>
+      <thead><tr><th>#</th><th>Name</th><th>Contact</th><th>Topic</th><th>Message</th><th>Date</th><th>Del</th></tr></thead>
+      <tbody id="tb-queries"></tbody>
+    </table></div>
+  </div>
+
+</div>
+
+<!-- MODAL -->
+<div class="modal-bg" id="modal">
+  <div class="modal">
+    <div class="mhead"><h3 id="mtitle">Details</h3><button onclick="closeM()">✕</button></div>
+    <div class="mbody" id="mbody"></div>
+  </div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+<script>
+firebase.initializeApp({
+  apiKey:"AIzaSyBGo8UN7LoK4FQScJ05LmYcL0I_8DYq_Ro",
+  authDomain:"labourplug-india.firebaseapp.com",
+  projectId:"labourplug-india",
+  storageBucket:"labourplug-india.firebasestorage.app",
+  messagingSenderId:"688800620593",
+  appId:"1:688800620593:web:8fab45f1e136eb7ad67510"
+});
+const db = firebase.firestore();
+
+let W=[], J=[], Q=[];
+
+function login(){
+  if(document.getElementById('pw').value==='Labour@2025'){
+    document.getElementById('overlay').style.display='none';
+    loadAll();
+  } else {
+    document.getElementById('err').textContent='❌ Wrong password';
+  }
+}
+function logout(){document.getElementById('overlay').style.display='flex';}
+
+async function loadAll(){
+  try{
+    // WORKERS — fields: name, mobile, city, work, exp, pay, about, status, createdAt
+    const ws = await db.collection('workers').limit(500).get();
+    W = ws.docs.map(d=>({id:d.id,...d.data()}));
+    W.sort((a,b)=>ts(b.createdAt)-ts(a.createdAt));
+    document.getElementById('wc').textContent=W.length;
+    document.getElementById('s1').textContent=W.length;
+    document.getElementById('s3').textContent=W.filter(w=>w.status==='approved').length;
+    document.getElementById('s4').textContent=W.filter(w=>!w.status||w.status==='pending').length;
+  }catch(e){console.error('workers error',e.message);}
+
+  try{
+    // JOBS — fields: title, company, sector, city, pay, jobType, exp, desc,
+    //                seats, benefits, contactName, contactPhone, contactEmail, status, createdAt
+    const js = await db.collection('jobs').limit(500).get();
+    J = js.docs.map(d=>({id:d.id,...d.data()}));
+    J.sort((a,b)=>ts(b.createdAt)-ts(a.createdAt));
+    document.getElementById('jc').textContent=J.length;
+    document.getElementById('s2').textContent=J.length;
+  }catch(e){console.error('jobs error',e.message);}
+
+  try{
+    // QUERIES — fields: name, contact, topic, message, createdAt
+    const qs = await db.collection('queries').limit(200).get();
+    Q = qs.docs.map(d=>({id:d.id,...d.data()}));
+    Q.sort((a,b)=>ts(b.createdAt)-ts(a.createdAt));
+    document.getElementById('qc').textContent=Q.length;
+  }catch(e){console.error('queries error',e.message);}
+
+  renderOV(); renderW(); renderJ(); renderQ();
+  toast('✅ Data loaded!','ok');
+}
+
+function ts(t){if(!t)return 0;return t.toDate?t.toDate().getTime():new Date(t).getTime();}
+function fd(t){if(!t)return '—';const d=t.toDate?t.toDate():new Date(t);return d.toLocaleDateString('en-IN',{day:'numeric',month:'short',year:'numeric'});}
+function e(s){if(!s)return '—';return String(s).replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+function sb(s){
+  if(!s||s==='pending')return '<span class="badge b-pending">Pending</span>';
+  if(s==='approved')return '<span class="badge b-approved">Approved</span>';
+  if(s==='rejected')return '<span class="badge b-rejected">Rejected</span>';
+  return `<span class="badge b-pending">${s}</span>`;
+}
+
+function renderOV(){
+  document.getElementById('ov-workers').innerHTML = W.slice(0,8).map(w=>`<tr>
+    <td style="font-weight:700;color:#0D1F4E">${e(w.name)}</td>
+    <td><a href="tel:${e(w.mobile)}" style="color:#FF6B00">${e(w.mobile)}</a></td>
+    <td>${e(w.city)}</td><td>${e(w.work)}</td>
+    <td>${sb(w.status)}</td><td style="color:#aaa;font-size:.78rem">${fd(w.createdAt)}</td>
+  </tr>`).join('') || '<tr><td colspan="6" class="empty">No job seekers yet</td></tr>';
+
+  document.getElementById('ov-jobs').innerHTML = J.slice(0,8).map(j=>`<tr>
+    <td style="font-weight:700;color:#0D1F4E">${e(j.title)}</td>
+    <td>${e(j.company)}</td><td>${e(j.city)}</td>
+    <td style="color:#138808;font-weight:700">${e(j.pay)}</td>
+    <td>${e(j.contactName)}</td>
+    <td><a href="tel:${e(j.contactPhone)}" style="color:#FF6B00">${e(j.contactPhone)}</a></td>
+    <td style="color:#aaa;font-size:.78rem">${fd(j.createdAt)}</td>
+  </tr>`).join('') || '<tr><td colspan="7" class="empty">No job posts yet</td></tr>';
+}
+
+function renderW(){
+  const q=(document.getElementById('wsearch')?.value||'').toLowerCase();
+  const list=W.filter(w=>!q||(w.name||'').toLowerCase().includes(q)||(w.mobile||'').includes(q)||(w.city||'').toLowerCase().includes(q)||(w.work||'').toLowerCase().includes(q));
+  document.getElementById('tb-workers').innerHTML=list.length?list.map((w,i)=>`<tr>
+    <td style="color:#aaa;font-size:.75rem">${i+1}</td>
+    <td style="font-weight:700;color:#0D1F4E">${e(w.name)}</td>
+    <td><a href="tel:${e(w.mobile)}" style="color:#FF6B00">${e(w.mobile)}</a></td>
+    <td>${e(w.city)}</td><td>${e(w.work)}</td>
+    <td>${e(w.exp)||'—'}</td>
+    <td style="color:#138808;font-weight:600">${e(w.pay)||'—'}</td>
+    <td>${sb(w.status)}</td>
+    <td style="color:#aaa;font-size:.75rem">${fd(w.createdAt)}</td>
+    <td style="white-space:nowrap">
+      <button class="btn btn-v" onclick="viewW('${w.id}')">View</button>
+      ${(!w.status||w.status==='pending')?`<button class="btn btn-a" onclick="upW('${w.id}','approved')">✓</button><button class="btn btn-r" onclick="upW('${w.id}','rejected')">✗</button>`:''}
+      <button class="btn btn-d" onclick="delW('${w.id}')">🗑</button>
+    </td>
+  </tr>`).join(''):`<tr><td colspan="10" class="empty">No job seekers found</td></tr>`;
+}
+
+function renderJ(){
+  const q=(document.getElementById('jsearch')?.value||'').toLowerCase();
+  const list=J.filter(j=>!q||(j.title||'').toLowerCase().includes(q)||(j.company||'').toLowerCase().includes(q)||(j.city||'').toLowerCase().includes(q)||(j.contactName||'').toLowerCase().includes(q));
+  document.getElementById('tb-jobs').innerHTML=list.length?list.map((j,i)=>`<tr>
+    <td style="color:#aaa;font-size:.75rem">${i+1}</td>
+    <td style="font-weight:700;color:#0D1F4E">${e(j.title)}</td>
+    <td>${e(j.company)}</td>
+    <td><span style="background:#FFF0E6;color:#D95A00;padding:2px 7px;border-radius:4px;font-size:.72rem;font-weight:700">${e(j.sector)||'—'}</span></td>
+    <td>${e(j.city)}</td>
+    <td style="color:#138808;font-weight:700">${e(j.pay)}</td>
+    <td>${e(j.contactName)||'—'}</td>
+    <td><a href="tel:${e(j.contactPhone)}" style="color:#FF6B00">${e(j.contactPhone)||'—'}</a></td>
+    <td style="color:#aaa;font-size:.75rem">${fd(j.createdAt)}</td>
+    <td style="white-space:nowrap">
+      <button class="btn btn-v" onclick="viewJ('${j.id}')">View</button>
+      <button class="btn btn-d" onclick="delJ('${j.id}')">🗑</button>
+    </td>
+  </tr>`).join(''):`<tr><td colspan="10" class="empty">No job posts found</td></tr>`;
+}
+
+function renderQ(){
+  document.getElementById('tb-queries').innerHTML=Q.length?Q.map((q,i)=>`<tr>
+    <td style="color:#aaa;font-size:.75rem">${i+1}</td>
+    <td style="font-weight:700">${e(q.name)}</td>
+    <td>${e(q.contact)}</td>
+    <td><span style="background:#E8EDF8;color:#0D1F4E;padding:2px 7px;border-radius:4px;font-size:.72rem;font-weight:700">${e(q.topic)||'General'}</span></td>
+    <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${e(q.message)}</td>
+    <td style="color:#aaa;font-size:.75rem">${fd(q.createdAt)}</td>
+    <td><button class="btn btn-d" onclick="delQ('${q.id}')">🗑</button></td>
+  </tr>`).join(''):`<tr><td colspan="7" class="empty">No queries yet</td></tr>`;
+}
+
+function viewW(id){
+  const w=W.find(x=>x.id===id); if(!w)return;
+  document.getElementById('mtitle').textContent='👷 Job Seeker Details';
+  document.getElementById('mbody').innerHTML=`
+    <div class="mrow"><div class="mitem"><div class="ml">Name</div><div class="mv">${e(w.name)}</div></div>
+    <div class="mitem"><div class="ml">Mobile</div><div class="mv"><a href="tel:${e(w.mobile)}" style="color:#FF6B00">${e(w.mobile)}</a></div></div></div>
+    <div class="mrow"><div class="mitem"><div class="ml">City</div><div class="mv">${e(w.city)}</div></div>
+    <div class="mitem"><div class="ml">Work / Kaam</div><div class="mv">${e(w.work)}</div></div></div>
+    <div class="mrow"><div class="mitem"><div class="ml">Experience</div><div class="mv">${e(w.exp)||'—'}</div></div>
+    <div class="mitem"><div class="ml">Expected Pay</div><div class="mv" style="color:#138808">${e(w.pay)||'—'}</div></div></div>
+    ${w.about?`<div style="background:#f9f9f9;padding:12px;border-radius:8px;margin-bottom:14px"><div class="ml" style="margin-bottom:4px">About</div><div style="font-size:.85rem;line-height:1.6">${e(w.about)}</div></div>`:''}
+    <div class="mrow"><div class="mitem"><div class="ml">Status</div><div class="mv">${sb(w.status)}</div></div>
+    <div class="mitem"><div class="ml">Registered</div><div class="mv">${fd(w.createdAt)}</div></div></div>
+    <div class="mfooter">
+      <a class="wa" href="https://wa.me/91${(w.mobile||'').replace(/\D/g,'')}?text=Namaste+${encodeURIComponent(w.name||'')}!+Labourplug+se+contact+kar+rahe+hain." target="_blank">💬 WhatsApp</a>
+      ${(!w.status||w.status==='pending')?`<button class="ma" onclick="upW('${w.id}','approved');closeM()">✅ Approve</button><button class="mr" onclick="upW('${w.id}','rejected');closeM()">❌ Reject</button>`:''}
+    </div>`;
+  document.getElementById('modal').classList.add('open');
+}
+
+function viewJ(id){
+  const j=J.find(x=>x.id===id); if(!j)return;
+  document.getElementById('mtitle').textContent='💼 Job Post Details';
+  document.getElementById('mbody').innerHTML=`
+    <div class="mrow"><div class="mitem"><div class="ml">Job Title</div><div class="mv">${e(j.title)}</div></div>
+    <div class="mitem"><div class="ml">Company</div><div class="mv">${e(j.company)}</div></div></div>
+    <div class="mrow"><div class="mitem"><div class="ml">Sector</div><div class="mv">${e(j.sector)||'—'}</div></div>
+    <div class="mitem"><div class="ml">City</div><div class="mv">${e(j.city)}</div></div></div>
+    <div class="mrow"><div class="mitem"><div class="ml">Pay</div><div class="mv" style="color:#138808">${e(j.pay)}</div></div>
+    <div class="mitem"><div class="ml">Seats</div><div class="mv">${e(j.seats)||'—'}</div></div></div>
+    <div class="mrow"><div class="mitem"><div class="ml">Job Type</div><div class="mv">${e(j.jobType)||'—'}</div></div>
+    <div class="mitem"><div class="ml">Experience</div><div class="mv">${e(j.exp)||'—'}</div></div></div>
+    ${j.desc?`<div style="background:#f9f9f9;padding:12px;border-radius:8px;margin-bottom:14px"><div class="ml" style="margin-bottom:4px">Description</div><div style="font-size:.85rem;line-height:1.6">${e(j.desc)}</div></div>`:''}
+    ${j.benefits?`<div style="background:#f9f9f9;padding:12px;border-radius:8px;margin-bottom:14px"><div class="ml" style="margin-bottom:4px">Benefits</div><div style="font-size:.85rem">${e(j.benefits)}</div></div>`:''}
+    <div class="mrow"><div class="mitem"><div class="ml">Contact Name</div><div class="mv">${e(j.contactName)||'—'}</div></div>
+    <div class="mitem"><div class="ml">Phone</div><div class="mv"><a href="tel:${e(j.contactPhone)}" style="color:#FF6B00">${e(j.contactPhone)||'—'}</a></div></div></div>
+    ${j.contactEmail?`<div class="mrow"><div class="mitem"><div class="ml">Email</div><div class="mv"><a href="mailto:${e(j.contactEmail)}" style="color:#FF6B00">${e(j.contactEmail)}</a></div></div></div>`:''}
+    <div class="mrow"><div class="mitem"><div class="ml">Posted On</div><div class="mv">${fd(j.createdAt)}</div></div></div>
+    <div class="mfooter">
+      <a class="wa" href="https://wa.me/91${(j.contactPhone||'').replace(/\D/g,'')}?text=Namaste+${encodeURIComponent(j.contactName||'')}!+Labourplug+se+aapka+job+post+dekha." target="_blank">💬 WhatsApp</a>
+    </div>`;
+  document.getElementById('modal').classList.add('open');
+}
+
+async function upW(id,status){
+  try{await db.collection('workers').doc(id).update({status});const w=W.find(x=>x.id===id);if(w)w.status=status;
+  document.getElementById('s3').textContent=W.filter(w=>w.status==='approved').length;
+  document.getElementById('s4').textContent=W.filter(w=>!w.status||w.status==='pending').length;
+  renderOV();renderW();toast(status==='approved'?'✅ Approved':'❌ Rejected',status==='approved'?'ok':'err');}
+  catch(ex){toast('Error: '+ex.message,'err');}
+}
+
+async function delW(id){
+  if(!confirm('Delete this job seeker?'))return;
+  try{await db.collection('workers').doc(id).delete();W=W.filter(x=>x.id!==id);
+  document.getElementById('wc').textContent=W.length;document.getElementById('s1').textContent=W.length;
+  renderOV();renderW();toast('Deleted','err');}catch(ex){toast('Error: '+ex.message,'err');}
+}
+
+async function delJ(id){
+  if(!confirm('Delete this job post?'))return;
+  try{await db.collection('jobs').doc(id).delete();J=J.filter(x=>x.id!==id);
+  document.getElementById('jc').textContent=J.length;document.getElementById('s2').textContent=J.length;
+  renderOV();renderJ();toast('Deleted','err');}catch(ex){toast('Error: '+ex.message,'err');}
+}
+
+async function delQ(id){
+  if(!confirm('Delete this query?'))return;
+  try{await db.collection('queries').doc(id).delete();Q=Q.filter(x=>x.id!==id);
+  document.getElementById('qc').textContent=Q.length;renderQ();toast('Deleted','err');}
+  catch(ex){toast('Error: '+ex.message,'err');}
+}
+
+function tab(name,el){
+  document.querySelectorAll('.ntab').forEach(t=>t.classList.remove('active'));
+  el.classList.add('active');
+  document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
+  document.getElementById('panel-'+name).classList.add('active');
+}
+
+function closeM(){document.getElementById('modal').classList.remove('open');}
+document.getElementById('modal').addEventListener('click',function(e){if(e.target===this)closeM();});
+
+let tt;
+function toast(msg,type=''){
+  const el=document.getElementById('toast');
+  el.textContent=msg;el.className='toast show'+(type?' '+type:'');
+  clearTimeout(tt);tt=setTimeout(()=>el.classList.remove('show'),3000);
+}
+</script>
+</body>
+</html>
